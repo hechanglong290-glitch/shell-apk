@@ -17,11 +17,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # 1. 自动配置并生成稳定的 Gradle Wrapper 环境 (指定 8.5 版本，完美兼容所有 Android 编译语法)
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5'
 
+      # 2. 使用标准的 Gradle Wrapper 执行正式版打包
       - name: Build release apk
-        run: gradle assembleRelease
+        run: ./gradlew assembleRelease
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
