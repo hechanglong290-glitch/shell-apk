@@ -17,17 +17,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 1. 强行在根目录初始化生成 gradle wrapper 脚本（指定版本 8.5）
+      # 1. 强制下载并配置稳定的 Gradle 8.5 独立环境，彻底避开全局 9.8.2 的干扰
+      - name: Download and Setup Gradle 8.5
+        run: |
+          wget https://services.gradle.org/distributions/gradle-8.5-bin.zip
+          unzip -q gradle-8.5-bin.zip
+          echo "$PWD/gradle-8.5/bin" >> $GITHUB_PATH
+
+      # 2. 在当前目录下直接生成标准 Wrapper
       - name: Generate Gradle Wrapper
         run: gradle wrapper --gradle-version 8.5
 
-      # 2. 赋予 gradlew 执行权限
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      # 3. 使用生成的 ./gradlew 执行正式版打包
-      - name: Build release apk
-        run: ./gradlew assembleRelease
+      # 3. 赋予执行权限并直接开始正式版打包
+      - name: Grant execute permission and Build release apk
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
