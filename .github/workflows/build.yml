@@ -17,24 +17,47 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 1. 强制下载并配置稳定的 Gradle 8.5 独立环境
+      # 1. 自动生成一个正式签名的 Keystore 文件，并配置到项目里
+      - name: Generate Release Keystore
+        run: |
+          keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias pcdn_key -storepass 123456 -keypass 123456 -dname "CN=Android, OU=PCDN, O=Tool, L=Unknown, ST=Unknown, C=CN"
+          
+          # 自动在 app/build.gradle 中注入签名配置
+          echo "" >> app/build.gradle
+          echo "android {" >> app/build.gradle
+          echo "    signingConfigs {" >> app/build.gradle
+          echo "        release {" >> app/build.gradle
+          echo "            storeFile file('../release.jks')" >> app/build.gradle
+          echo "            storePassword '123456'" >> app/build.gradle
+          echo "            keyAlias 'pcdn_key'" >> app/build.gradle
+          echo "            keyPassword '123456'" >> app/build.gradle
+          echo "        }" >> app/build.gradle
+          echo "    }" >> app/build.gradle
+          echo "    buildTypes {" >> app/build.gradle
+          echo "        release {" >> app/build.gradle
+          echo "            signingConfig signingConfigs.release" >> app/build.gradle
+          echo "        }" >> app/build.gradle
+          echo "    }" >> app/build.gradle
+          echo "}" >> app/build.gradle
+
+      # 2. 下载并配置稳定的 Gradle 8.5
       - name: Download and Setup Gradle 8.5
         run: |
           wget https://services.gradle.org/distributions/gradle-8.5-bin.zip
           unzip -q gradle-8.5-bin.zip
           echo "$PWD/gradle-8.5/bin" >> $GITHUB_PATH
 
-      # 2. 生成 Wrapper 并赋予权限
+      # 3. 生成 Wrapper 并赋予权限
       - name: Generate Gradle Wrapper
         run: |
           gradle wrapper --gradle-version 8.5
           chmod +x gradlew
 
-      # 3. 编译正式版
+      # 4. 执行正式版打包（此时已经强制挂载了合规的签名）
       - name: Build release apk
         run: ./gradlew assembleRelease
 
-      # 4. 终极通配符上传：不管 apk 生成在哪个子目录，只要是 apk 全部打包下载！
+      # 5. 上传生成的 APK 产物
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
