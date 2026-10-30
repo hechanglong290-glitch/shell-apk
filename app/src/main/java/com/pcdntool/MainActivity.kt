@@ -61,7 +61,7 @@ class MainActivity : AppCompatActivity() {
             "    echo '⚠️ 【提示】此设备没有任何跑量后台运行！'",
             "    echo '------------------------------------------------'",
             "",
-            "    # 2. 智能检测当前是否有开机自启限速文件，或者 tc 队列中是否有 tbf",
+            "    # 2. 智能检测当前是否有开机自启限速文件",
             "    if [ -f /system/etc/init.d/99limit_upload ] || [ -f /data/adb/service.d/limit_upload.sh ]; then",
             "        echo '-> 检测到当前状态：【已处于限速状态】'",
             "        echo '-> 正在自动执行：【取消上传限制，恢复网络全速】...'",
@@ -74,7 +74,7 @@ class MainActivity : AppCompatActivity() {
             "                tc qdisc del dev \$dev root 2>/dev/null",
             "                echo \"已清除网卡 \$dev 的限速规则，恢复全速\"",
             "            fi",
-            "done",
+            "        done",
             "        echo '================================================'",
             "        echo '✅ 操作完成：已成功取消限速，网络已恢复全速！'",
             "        echo '================================================'",
@@ -82,13 +82,15 @@ class MainActivity : AppCompatActivity() {
             "        echo '-> 检测到当前状态：【未限速状态】'",
             "        echo '-> 正在自动执行：【开启上传限制（最高 1M）】...'",
             "        ",
+            "        # 使用兼容性最好的 htb 算法替代 tbf，彻底解决 Android 内核不支持的报错",
             "        mkdir -p /system/etc/init.d 2>/dev/null",
             "        echo '#!/system/bin/sh' > /system/etc/init.d/99limit_upload",
             "        echo 'sleep 15' >> /system/etc/init.d/99limit_upload",
             "        echo 'for dev in eth0 wlan0; do' >> /system/etc/init.d/99limit_upload",
             "        echo '    if [ -d \"/sys/class/net/\$dev\" ]; then' >> /system/etc/init.d/99limit_upload",
             "        echo '        tc qdisc del dev \$dev root 2>/dev/null' >> /system/etc/init.d/99limit_upload",
-            "        echo '        tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k' >> /system/etc/init.d/99limit_upload",
+            "        echo '        tc qdisc add dev \$dev root handle 1: htb default 10 2>/dev/null' >> /system/etc/init.d/99limit_upload",
+            "        echo '        tc class add dev \$dev parent 1: classid 1:10 htb rate 1mbit ceil 1mbit 2>/dev/null' >> /system/etc/init.d/99limit_upload",
             "        echo '    fi' >> /system/etc/init.d/99limit_upload",
             "        echo 'done' >> /system/etc/init.d/99limit_upload",
             "        chmod 755 /system/etc/init.d/99limit_upload 2>/dev/null",
@@ -100,7 +102,8 @@ class MainActivity : AppCompatActivity() {
             "            echo 'for dev in eth0 wlan0; do' >> /data/adb/service.d/limit_upload.sh",
             "            echo '    if [ -d \"/sys/class/net/\$dev\" ]; then' >> /data/adb/service.d/limit_upload.sh",
             "            echo '        tc qdisc del dev \$dev root 2>/dev/null' >> /data/adb/service.d/limit_upload.sh",
-            "            echo '            tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k' >> /data/adb/service.d/limit_upload.sh",
+            "            echo '        tc qdisc add dev \$dev root handle 1: htb default 10 2>/dev/null' >> /data/adb/service.d/limit_upload.sh",
+            "            echo '        tc class add dev \$dev parent 1: classid 1:10 htb rate 1mbit ceil 1mbit 2>/dev/null' >> /data/adb/service.d/limit_upload.sh",
             "            echo '    fi' >> /data/adb/service.d/limit_upload.sh",
             "            echo 'done' >> /data/adb/service.d/limit_upload.sh",
             "            chmod 755 /data/adb/service.d/limit_upload.sh",
@@ -109,7 +112,8 @@ class MainActivity : AppCompatActivity() {
             "        for dev in eth0 wlan0; do",
             "            if [ -d \"/sys/class/net/\$dev\" ]; then",
             "                tc qdisc del dev \$dev root 2>/dev/null",
-            "                tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k",
+            "                tc qdisc add dev \$dev root handle 1: htb default 10 2>/dev/null",
+            "                tc class add dev \$dev parent 1: classid 1:10 htb rate 1mbit ceil 1mbit 2>/dev/null",
             "                echo \"已对网卡 \$dev 实时生效上行 1M 限速\"",
             "            fi",
             "        done",
@@ -139,7 +143,7 @@ class MainActivity : AppCompatActivity() {
 
                 writer.write("sh ${scriptFile.absolutePath}\n")
                 writer.flush()
-                writer.close() // 写完后关闭输出流，防止阻塞
+                writer.close()
 
                 val buffer = CharArray(1024)
                 var read: Int
