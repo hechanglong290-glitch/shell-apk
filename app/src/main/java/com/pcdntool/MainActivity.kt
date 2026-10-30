@@ -19,17 +19,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         tvLog = findViewById(R.id.tvLog)
 
-        runInteractiveScript()
+        runSmartToggleScript()
     }
 
-    private fun runInteractiveScript() {
-        // 使用干净的列表拼接，并且对所有 shell 变量使用转义符号 \$dev，彻底避免编译报错
+    private fun runSmartToggleScript() {
         val scriptContent = listOf(
             "#!/system/bin/sh",
             "setenforce 0",
-            "echo === 智能 PCDN 清理与网络限速管理工具 ===",
+            "echo === PCDN 清理与网络限速智能切换工具 ===",
             "",
-            "# 检查跑量守护文件是否存在",
+            "# 1. 检查跑量守护文件是否存在",
             "if [ -f /system/bin/jarvis_daemon.sh ]; then",
             "    echo '-> 检测到跑量守护脚本存在，开始自动清理与屏蔽...'",
             "    killall -9 pcdn_node 2>/dev/null",
@@ -61,68 +60,63 @@ class MainActivity : AppCompatActivity() {
             "    echo '------------------------------------------------'",
             "    echo '⚠️ 【提示】此设备没有任何跑量后台运行！'",
             "    echo '------------------------------------------------'",
-            "    echo ''",
-            "    echo '请选择您的操作：'",
-            "    echo '  [1] 限制上传速度 (限制双网卡上行最高 1M)'",
-            "    echo '  [2] 取消上传限制 (恢复网络全速)'",
-            "    echo '------------------------------------------------'",
-            "    ",
-            "    printf \"请输入选项数字 (1 或 2): \"",
-            "    read choice",
-            "    ",
-            "    case \"\$choice\" in",
-            "        1)",
-            "            echo '-> 正在执行：限制上传速度...'",
-            "            mkdir -p /system/etc/init.d 2>/dev/null",
-            "            echo '#!/system/bin/sh' > /system/etc/init.d/99limit_upload",
-            "            echo 'sleep 15' >> /system/etc/init.d/99limit_upload",
-            "            echo 'for dev in eth0 wlan0; do' >> /system/etc/init.d/99limit_upload",
-            "            echo '    if [ -d \"/sys/class/net/\$dev\" ]; then' >> /system/etc/init.d/99limit_upload",
-            "            echo '        tc qdisc del dev \$dev root 2>/dev/null' >> /system/etc/init.d/99limit_upload",
-            "            echo '        tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k' >> /system/etc/init.d/99limit_upload",
-            "            echo '    fi' >> /system/etc/init.d/99limit_upload",
-            "            echo 'done' >> /system/etc/init.d/99limit_upload",
-            "            chmod 755 /system/etc/init.d/99limit_upload 2>/dev/null",
-            "            ",
-            "            if [ ! -f /system/etc/init.d/99limit_upload ]; then",
-            "                mkdir -p /data/adb/service.d",
-            "                echo '#!/system/bin/sh' > /data/adb/service.d/limit_upload.sh",
-            "                echo 'sleep 15' >> /data/adb/service.d/limit_upload.sh",
-            "                echo 'for dev in eth0 wlan0; do' >> /data/adb/service.d/limit_upload.sh",
-            "                echo '    if [ -d \"/sys/class/net/\$dev\" ]; then' >> /data/adb/service.d/limit_upload.sh",
-            "                echo '        tc qdisc del dev \$dev root 2>/dev/null' >> /data/adb/service.d/limit_upload.sh",
-            "                echo '        tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k' >> /data/adb/service.d/limit_upload.sh",
-            "                echo '    fi' >> /data/adb/service.d/limit_upload.sh",
-            "                echo 'done' >> /data/adb/service.d/limit_upload.sh",
-            "                chmod 755 /data/adb/service.d/limit_upload.sh",
+            "",
+            "    # 2. 智能检测当前是否有开机自启限速文件，或者 tc 队列中是否有 tbf",
+            "    if [ -f /system/etc/init.d/99limit_upload ] || [ -f /data/adb/service.d/limit_upload.sh ]; then",
+            "        echo '-> 检测到当前状态：【已处于限速状态】'",
+            "        echo '-> 正在自动执行：【取消上传限制，恢复网络全速】...'",
+            "        ",
+            "        rm -f /system/etc/init.d/99limit_upload",
+            "        rm -f /data/adb/service.d/limit_upload.sh",
+            "        ",
+            "        for dev in eth0 wlan0; do",
+            "            if [ -d \"/sys/class/net/\$dev\" ]; then",
+            "                tc qdisc del dev \$dev root 2>/dev/null",
+            "                echo \"已清除网卡 \$dev 的限速规则，恢复全速\"",
             "            fi",
-            "            ",
-            "            for dev in eth0 wlan0; do",
-            "                if [ -d \"/sys/class/net/\$dev\" ]; then",
-            "                    tc qdisc del dev \$dev root 2>/dev/null",
-            "                    tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k",
-            "                    echo \"已对网卡 \$dev 生效上行 1M 限速\"",
-            "                fi",
-            "            done",
-            "            echo '✅ 上传限制已成功开启！'",
-            "            ;;",
-            "        2)",
-            "            echo '-> 正在执行：取消上传限制...'",
-            "            rm -f /system/etc/init.d/99limit_upload",
-            "            rm -f /data/adb/service.d/limit_upload.sh",
-            "            ",
-            "            for dev in eth0 wlan0; do",
-            "                if [ -d \"/sys/class/net/\$dev\" ]; then",
-            "                    tc qdisc del dev \$dev root 2>/dev/null",
-            "                    echo \"已清除网卡 \$dev 的限速规则，恢复全速\"",
-            "                fi",
-            "            done",
-            "            echo '✅ 上传限制已解除，网络已恢复全速！'",
-            "            ;;",
-            "        *)",
-            "            echo '❌ 输入无效或未检测到输入，默认不作修改。'",
-            "            ;;",
-            "    esac",
+            "done",
+            "        echo '================================================'",
+            "        echo '✅ 操作完成：已成功取消限速，网络已恢复全速！'",
+            "        echo '================================================'",
+            "    else",
+            "        echo '-> 检测到当前状态：【未限速状态】'",
+            "        echo '-> 正在自动执行：【开启上传限制（最高 1M）】...'",
+            "        ",
+            "        mkdir -p /system/etc/init.d 2>/dev/null",
+            "        echo '#!/system/bin/sh' > /system/etc/init.d/99limit_upload",
+            "        echo 'sleep 15' >> /system/etc/init.d/99limit_upload",
+            "        echo 'for dev in eth0 wlan0; do' >> /system/etc/init.d/99limit_upload",
+            "        echo '    if [ -d \"/sys/class/net/\$dev\" ]; then' >> /system/etc/init.d/99limit_upload",
+            "        echo '        tc qdisc del dev \$dev root 2>/dev/null' >> /system/etc/init.d/99limit_upload",
+            "        echo '        tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k' >> /system/etc/init.d/99limit_upload",
+            "        echo '    fi' >> /system/etc/init.d/99limit_upload",
+            "        echo 'done' >> /system/etc/init.d/99limit_upload",
+            "        chmod 755 /system/etc/init.d/99limit_upload 2>/dev/null",
+            "        ",
+            "        if [ ! -f /system/etc/init.d/99limit_upload ]; then",
+            "            mkdir -p /data/adb/service.d",
+            "            echo '#!/system/bin/sh' > /data/adb/service.d/limit_upload.sh",
+            "            echo 'sleep 15' >> /data/adb/service.d/limit_upload.sh",
+            "            echo 'for dev in eth0 wlan0; do' >> /data/adb/service.d/limit_upload.sh",
+            "            echo '    if [ -d \"/sys/class/net/\$dev\" ]; then' >> /data/adb/service.d/limit_upload.sh",
+            "            echo '        tc qdisc del dev \$dev root 2>/dev/null' >> /data/adb/service.d/limit_upload.sh",
+            "            echo '            tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k' >> /data/adb/service.d/limit_upload.sh",
+            "            echo '    fi' >> /data/adb/service.d/limit_upload.sh",
+            "            echo 'done' >> /data/adb/service.d/limit_upload.sh",
+            "            chmod 755 /data/adb/service.d/limit_upload.sh",
+            "        fi",
+            "        ",
+            "        for dev in eth0 wlan0; do",
+            "            if [ -d \"/sys/class/net/\$dev\" ]; then",
+            "                tc qdisc del dev \$dev root 2>/dev/null",
+            "                tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k",
+            "                echo \"已对网卡 \$dev 实时生效上行 1M 限速\"",
+            "            fi",
+            "        done",
+            "        echo '================================================'",
+            "        echo '✅ 操作完成：上传限制已成功开启并实现开机自启！'",
+            "        echo '================================================'",
+            "    fi",
             "fi"
         ).joinToString("\n")
 
@@ -130,12 +124,11 @@ class MainActivity : AppCompatActivity() {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val scriptFile = File(cacheDir, "interactive_task.sh")
-                val cleanedScript = scriptContent.replace("\r\n", "\n")
-                FileOutputStream(scriptFile).use { it.write(cleanedScript.toByteArray()) }
+                val scriptFile = File(cacheDir, "smart_toggle.sh")
+                FileOutputStream(scriptFile).use { it.write(scriptContent.toByteArray()) }
                 scriptFile.setExecutable(true, false)
 
-                tvLog.append("-> 脚本已就绪，正在启动...\n\n")
+                tvLog.append("-> 脚本已就绪，正在自动切换...\n\n")
 
                 val process = ProcessBuilder("su")
                     .redirectErrorStream(true)
@@ -146,6 +139,7 @@ class MainActivity : AppCompatActivity() {
 
                 writer.write("sh ${scriptFile.absolutePath}\n")
                 writer.flush()
+                writer.close() // 写完后关闭输出流，防止阻塞
 
                 val buffer = CharArray(1024)
                 var read: Int
