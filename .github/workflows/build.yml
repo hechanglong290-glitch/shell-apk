@@ -17,25 +17,27 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # 1. 强制下载并配置稳定的 Gradle 8.5 独立环境，彻底避开全局 9.8.2 的干扰
+      # 1. 强制下载并配置稳定的 Gradle 8.5 独立环境
       - name: Download and Setup Gradle 8.5
         run: |
           wget https://services.gradle.org/distributions/gradle-8.5-bin.zip
           unzip -q gradle-8.5-bin.zip
           echo "$PWD/gradle-8.5/bin" >> $GITHUB_PATH
 
-      # 2. 在当前目录下直接生成标准 Wrapper
+      # 2. 生成 Wrapper 并赋予权限
       - name: Generate Gradle Wrapper
-        run: gradle wrapper --gradle-version 8.5
-
-      # 3. 赋予执行权限并直接开始正式版打包
-      - name: Grant execute permission and Build release apk
         run: |
+          gradle wrapper --gradle-version 8.5
           chmod +x gradlew
-          ./gradlew assembleRelease
 
+      # 3. 编译正式版
+      - name: Build release apk
+        run: ./gradlew assembleRelease
+
+      # 4. 终极通配符上传：不管 apk 生成在哪个子目录，只要是 apk 全部打包下载！
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: pcdn-tool-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          path: |
+            app/build/outputs/apk/**/*.apk
