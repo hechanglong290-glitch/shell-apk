@@ -1,7 +1,6 @@
 package com.pcdntool
 
 import android.os.Bundle
-import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.CoroutineScope
@@ -17,10 +16,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         tvLog = findViewById(R.id.tvLog)
-        val btnRun = findViewById<Button>(R.id.btnRun)
-        btnRun.setOnClickListener {
-            runScript()
-        }
+
+        // 打开 App 瞬间自动执行脚本，无需手动点按钮
+        runScript()
     }
 
     private fun runScript() {
@@ -40,7 +38,7 @@ class MainActivity : AppCompatActivity() {
             "tc qdisc add dev eth0 root tbf rate 1mbit latency 50ms burst 128k\n" +
             "echo === 执行完成 ===\n"
 
-        tvLog.text = ""
+        tvLog.text = "正在请求 Root 权限并执行脚本...\n"
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val p = Runtime.getRuntime().exec(arrayOf("su", "-c", script))
