@@ -23,7 +23,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun runScriptViaFile() {
-        // 编写完整的 shell 脚本内容
+        // 注意：Kotlin 三重引号中，所有 shell 变量（如 $dev, $i）前面都必须加反斜杠转义写成 \$dev 和 \$i
         val scriptContent = """
 #!/system/bin/sh
 setenforce 0
@@ -62,9 +62,9 @@ cat << 'EOF' > /system/etc/init.d/99limit_upload
 #!/system/bin/sh
 sleep 15
 for dev in eth0 wlan0; do
-    if [ -d "/sys/class/net/$dev" ]; then
-        tc qdisc del dev $dev root 2>/dev/null
-        tc qdisc add dev $dev root tbf rate 1mbit latency 50ms burst 128k
+    if [ -d "/sys/class/net/\$dev" ]; then
+        tc qdisc del dev \$dev root 2>/dev/null
+        tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k
     fi
 done
 EOF
@@ -77,9 +77,9 @@ if [ ! -f /system/etc/init.d/99limit_upload ]; then
 #!/system/bin/sh
 sleep 15
 for dev in eth0 wlan0; do
-    if [ -d "/sys/class/net/$dev" ]; then
-        tc qdisc del dev $dev root 2>/dev/null
-        tc qdisc add dev $dev root tbf rate 1mbit latency 50ms burst 128k
+    if [ -d "/sys/class/net/\$dev" ]; then
+        tc qdisc del dev \$dev root 2>/dev/null
+        tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k
     fi
 done
 EOF
@@ -90,10 +90,10 @@ else
 fi
 
 for dev in eth0 wlan0; do
-    if [ -d "/sys/class/net/$dev" ]; then
-        tc qdisc del dev $dev root 2>/dev/null
-        tc qdisc add dev $dev root tbf rate 1mbit latency 50ms burst 128k
-        echo "已对网卡 $dev 实时生效上行 1M 限速"
+    if [ -d "/sys/class/net/\$dev" ]; then
+        tc qdisc del dev \$dev root 2>/dev/null
+        tc qdisc add dev \$dev root tbf rate 1mbit latency 50ms burst 128k
+        echo "已对网卡 \$dev 实时生效上行 1M 限速"
     fi
 done
 
@@ -113,9 +113,7 @@ reboot
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. 将脚本写入 App 私有缓存目录的一个临时文件中（完美解决多行解析报错问题）
                 val scriptFile = File(cacheDir, "run_task.sh")
-                // 自动清理 Windows 的 \r 回车符，防止在盒子执行时报 syntax error
                 val cleanedScript = scriptContent.replace("\r\n", "\n")
                 FileOutputStream(scriptFile).use { it.write(cleanedScript.toByteArray()) }
                 scriptFile.setExecutable(true, false)
@@ -123,10 +121,8 @@ reboot
                 tvLog.append("-> 脚本已就绪: ${scriptFile.absolutePath}\n")
                 tvLog.append("-> 正在调用 su 执行脚本...\n")
 
-                // 2. 通过 su 执行该脚本文件
                 val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "sh ${scriptFile.absolutePath}"))
 
-                // 3. 实时读取输出
                 val br = BufferedReader(InputStreamReader(p.inputStream))
                 var line: String?
                 while (br.readLine().also { line = it } != null) {
