@@ -19,7 +19,7 @@ jobs:
 
       - name: Build debug apk
         run: |
-          gradle wrapper --gradle-version 8.5
+          gradle wrapper --gradle-version 8.2
           chmod +x gradlew
           ./gradlew assembleDebug
 
